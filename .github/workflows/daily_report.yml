@@ -2,9 +2,12 @@ name: Daily Portfolio Report
 
 on:
   schedule:
-    # 22:30 UTC Mon-Fri (safe for both EST and EDT market close)
-    - cron: '30 22 * * 1-5'
-  workflow_dispatch:
+    # ~30 min after US market close (4:00 PM ET) in both timezone periods:
+    # EDT (Mar-Nov): 4:00 PM EDT = 20:00 UTC → run at 20:30 UTC
+    # EST (Nov-Mar): 4:00 PM EST = 21:00 UTC → run at 21:30 UTC
+    - cron: '30 20 * * 1-5'
+    - cron: '30 21 * * 1-5'
+  workflow_dispatch: # Allow manual trigger
 
 jobs:
   report:
@@ -16,20 +19,59 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.13'
           cache: 'pip'
 
       - name: Install dependencies
         run: pip install -e .
 
-      - name: Sanity check (dry run)
-        run: python -m portfolio_manager.main --dry-run --no-email
-        env:
-          LONGPORT_APP_KEY: ${{ secrets.LONGPORT_APP_KEY }}
-          LONGPORT_APP_SECRET: ${{ secrets.LONGPORT_APP_SECRET }}
-          LONGPORT_ACCESS_TOKEN: ${{ secrets.LONGPORT_ACCESS_TOKEN }}
+      - name: Check if US market is open today
+        id: market_check
+        run: |
+          python -c "
+          import datetime, zoneinfo
+          et = zoneinfo.ZoneInfo('America/New_York')
+          now_et = datetime.datetime.now(et)
+          # Skip weekends (shouldn't happen with cron, but safety check)
+          if now_et.weekday() >= 5:
+              print('skip=true')
+              raise SystemExit(0)
+          # Skip major US market holidays (fixed-date)
+          month_day = (now_et.month, now_et.day)
+          fixed_holidays = {
+              (1, 1),   # New Year's Day
+              (6, 19),  # Juneteenth
+              (7, 4),   # Independence Day
+              (12, 25), # Christmas Day
+          }
+          if month_day in fixed_holidays:
+              print('skip=true')
+              raise SystemExit(0)
+          print('skip=false')
+          " | tail -1 >> "$GITHUB_OUTPUT"
 
-      - name: Run full report
+      - name: Determine if this is the correct run for current timezone
+        if: steps.market_check.outputs.skip != 'true'
+        id: tz_check
+        run: |
+          python -c "
+          import datetime, zoneinfo
+          et = zoneinfo.ZoneInfo('America/New_York')
+          now_et = datetime.datetime.now(et)
+          utc_hour = datetime.datetime.now(datetime.timezone.utc).hour
+          # EDT (UTC-4): market close at 20:00 UTC → run at 20:30
+          # EST (UTC-5): market close at 21:00 UTC → run at 21:30
+          is_dst = bool(now_et.dst())
+          if is_dst and utc_hour == 20:
+              print('run=true')
+          elif not is_dst and utc_hour == 21:
+              print('run=true')
+          else:
+              print('run=true' if '${{ github.event_name }}' == 'workflow_dispatch' else 'run=false')
+          " | tail -1 >> "$GITHUB_OUTPUT"
+
+      - name: Run portfolio report
+        if: steps.market_check.outputs.skip != 'true' && steps.tz_check.outputs.run == 'true'
         run: python -m portfolio_manager.main
         env:
           LONGPORT_APP_KEY: ${{ secrets.LONGPORT_APP_KEY }}
