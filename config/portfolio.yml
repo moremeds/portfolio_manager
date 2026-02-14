@@ -1,0 +1,30 @@
+# Portfolio Manager Configuration
+# Values prefixed with $ are resolved from environment variables at runtime.
+
+base_currency: USD
+
+# Target allocation weights (must sum to <= 1.0; remainder is cash target)
+target_allocations:
+  # AAPL.US: 0.15
+  # MSFT.US: 0.15
+  # NVDA.US: 0.20
+  # GOOGL.US: 0.10
+  # TSLA.US: 0.05
+
+# Trigger rebalancing when any position drifts more than this from target
+rebalance_threshold: 0.05
+
+# ATR volatility bands
+atr_period: 14
+atr_multiplier: 2.0
+
+# Email configuration (all optional — only validated when actually sending)
+email:
+  smtp_host: smtp.gmail.com
+  smtp_port: 465
+  smtp_username: $SMTP_USERNAME
+  smtp_password: $SMTP_APP_PASSWORD
+  from: $SMTP_USERNAME
+  to:
+    - $EMAIL_DEST
+  subject_template: "Portfolio Report — {date}"

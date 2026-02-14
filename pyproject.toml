@@ -1,0 +1,53 @@
+[project]
+name = "portfolio-manager"
+version = "0.1.0"
+description = "Portfolio manager connecting to LongPort API for position tracking, PnL analysis, and portfolio economics"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Chenxi LI", email = "eason.li@me.com"},
+]
+dependencies = [
+    "longport>=2.0",
+    "pandas>=2.0",
+    "python-dotenv>=1.0",
+    "pandas-ta>=0.3.14b1",
+    "jinja2>=3.1",
+    "pyyaml>=6.0",
+    "yfinance>=0.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "types-pyyaml>=6.0",
+]
+
+[project.scripts]
+portfolio-report = "portfolio_manager.main:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+mypy_path = "src"
